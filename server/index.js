@@ -112,6 +112,7 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) return;
     room.votes = {};
+    room.coupInitiator = socket.id;
     io.to(roomId).emit('voteStarted', { initiator: anonymous ? null : socket.id });
   });
 
@@ -123,7 +124,10 @@ io.on('connection', (socket) => {
     if (Object.keys(room.votes).length >= total) {
       const yes = Object.values(room.votes).filter(v => v).length;
       const result = yes > total / 2;
-      if (result) room.captain = socket.id;
+      if (result) {
+        room.captain = room.coupInitiator;
+      }
+      delete room.coupInitiator;
       io.to(roomId).emit('coupResult', { result, captain: room.captain });
     }
   });
