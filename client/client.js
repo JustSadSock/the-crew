@@ -31,9 +31,20 @@ let myObjective = '';
 
 function addMsg(msg) {
   const p = document.createElement('p');
-  p.textContent = msg;
+  p.classList.add('typewriter');
   chat.appendChild(p);
-  chat.scrollTop = chat.scrollHeight;
+  let i = 0;
+  function type() {
+    p.textContent = msg.slice(0, i);
+    i += 1;
+    if (i <= msg.length) {
+      setTimeout(type, 30);
+    } else {
+      p.classList.remove('typewriter');
+      chat.scrollTop = chat.scrollHeight;
+    }
+  }
+  type();
 }
 
 function renderState(state) {
@@ -43,9 +54,15 @@ function renderState(state) {
   roundEl.textContent = 'Round: ' + (state.round || 0);
 
   if (state.game && state.game.ship) {
+    let alarm = false;
     for (const [k, v] of Object.entries(state.game.ship)) {
-      if (shipEls[k]) shipEls[k].textContent = v;
+      if (shipEls[k]) {
+        shipEls[k].textContent = v;
+        shipEls[k].style.setProperty('--value', v + '%');
+        if (v < 30 || v > 120) alarm = true;
+      }
     }
+    document.body.classList.toggle('alarm', alarm);
   }
 
   playersEl.innerHTML = '';
@@ -69,6 +86,7 @@ function renderState(state) {
     if (myData.chosenCard === null) {
       myCards.forEach((c, i) => {
         const btn = document.createElement('button');
+        btn.classList.add('card');
         btn.textContent = c.name;
         btn.title = c.description;
         btn.onclick = () => {
@@ -93,6 +111,7 @@ function renderOffered() {
   if (currentState && currentState.captain === socket.id) {
     offeredCards.forEach((c) => {
       const btn = document.createElement('button');
+      btn.classList.add('card');
       btn.textContent = c.playerName + ': ' + c.cardName;
       btn.onclick = () => {
         socket.emit('captainSelect', { roomId, selectedPlayerId: c.playerId });
