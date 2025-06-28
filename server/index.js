@@ -221,6 +221,7 @@ io.on('connection', (socket) => {
   socket.on('startGame', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
+    if (socket.id !== room.captain) return;
     room.gameStarted = true;
     room.round = 0;
     room.game = createGameState(room);
@@ -251,6 +252,7 @@ io.on('connection', (socket) => {
   socket.on('captainSelect', ({ roomId, selectedPlayerId }) => {
     const room = rooms[roomId];
     if (!room || !room.game) return;
+    if (socket.id !== room.captain) return;
     const player = room.game.players[selectedPlayerId];
     if (!player) return;
     const card = player.chosenCard;
@@ -303,6 +305,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('nextRound', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+    if (socket.id !== room.captain) return;
     startRound(roomId);
   });
 
