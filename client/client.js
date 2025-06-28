@@ -138,7 +138,7 @@ function startTimer() {
 
 document.getElementById('create').onclick = () => {
   const name = document.getElementById('name').value;
-  socket.emit('createRoom', ({ roomId: id }) => {
+  socket.emit('createRoom', {}, ({ roomId: id }) => {
     roomId = id;
     addMsg('Created room ' + roomId);
     socket.emit('joinRoom', { roomId, name }, () => {});

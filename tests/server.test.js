@@ -41,14 +41,14 @@ describe('Server basic flow', function () {
   });
 
   it('creates a room', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       expect(roomId).to.be.a('string').with.lengthOf(4);
       done();
     });
   });
 
   it('allows another player to join', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Bob' }, ({ success }) => {
         expect(success).to.equal(true);
@@ -59,7 +59,7 @@ describe('Server basic flow', function () {
   });
 
   it('runs a minimal gameplay flow', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Alice' }, () => {
         socket.emit('startGame', { roomId });
@@ -77,7 +77,7 @@ describe('Server basic flow', function () {
   });
 
   it('removes a room when all players disconnect', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
         socket.close();
@@ -95,7 +95,7 @@ describe('Server basic flow', function () {
   });
 
   it('broadcasts ability usage', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Alice' }, () => {
         socket2.on('abilityUsed', ({ playerId, state }) => {
@@ -110,7 +110,7 @@ describe('Server basic flow', function () {
   });
 
   it('notifies the captain on private messages', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       const socket3 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
@@ -129,7 +129,7 @@ describe('Server basic flow', function () {
   });
 
   it('changes captain to coup initiator when vote passes', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket.on('coupResult', ({ result, captain }) => {
         expect(result).to.equal(true);
@@ -146,7 +146,7 @@ describe('Server basic flow', function () {
   });
 
   it('restricts starting the game to the captain', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
         let started = false;
@@ -165,7 +165,7 @@ describe('Server basic flow', function () {
   });
 
   it('restricts advancing rounds to the captain', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
         let currentRound = 0;
@@ -188,7 +188,7 @@ describe('Server basic flow', function () {
   });
 
   it('restricts captain selection to the captain', (done) => {
-    socket.emit('createRoom', ({ roomId }) => {
+    socket.emit('createRoom', {}, ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);
       let lastState;
       const stateHandler = (state) => { lastState = state; };
@@ -223,7 +223,7 @@ describe('Server basic flow', function () {
     const PORT = 4010;
     startServer({ PORT, TEST_EVENT: 'Meteor Shower', START_HULL: '5' }).then(proc => {
       const s = io(`http://localhost:${PORT}`);
-      s.emit('createRoom', ({ roomId }) => {
+      s.emit('createRoom', {}, ({ roomId }) => {
         s.emit('startGame', { roomId });
       });
       s.on('gameEnded', ({ victory }) => {
@@ -239,7 +239,7 @@ describe('Server basic flow', function () {
     const PORT = 4011;
     startServer({ PORT, TEST_EVENT: 'Cooling Failure' }).then(proc => {
       const s = io(`http://localhost:${PORT}`);
-      s.emit('createRoom', ({ roomId }) => {
+      s.emit('createRoom', {}, ({ roomId }) => {
         s.emit('startGame', { roomId });
       });
       s.on('newRound', ({ state }) => {
@@ -288,6 +288,6 @@ describe('Offline mode', function () {
       expect(state.players.length).to.equal(3); // 1 human + 2 bots
       done();
     });
-    socket.emit('createRoom', () => {});
+    socket.emit('createRoom', {}, () => {});
   });
 });

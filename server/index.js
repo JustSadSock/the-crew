@@ -225,7 +225,7 @@ const ABILITY_EFFECTS = {
 };
 
 io.on('connection', (socket) => {
-  socket.on('createRoom', (callback) => {
+  socket.on('createRoom', (_data, callback) => {
     const roomId = createRoomId();
     rooms[roomId] = {
       players: {},
