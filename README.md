@@ -63,3 +63,21 @@
 
 server link: https://wooden-marbled-owl.glitch.me
 server code: https://glitch.com/edit/#!/wooden-marbled-owl
+
+
+
+
+| Событие         | Параметры                                        | Ответ/эмит                                  |
+| --------------- | ------------------------------------------------ | ------------------------------------------- |
+| `createRoom`    | —                                                | `callback({roomId})`                        |
+| `joinRoom`      | `{ roomId: string, name: string }`               | `callback({success, error?})`               |
+| `startGame`     | `{ roomId: string }`                             | `emit('gameStarted', state)`                |
+| `playCard`      | `{ roomId: string, cardIndex: number }`          | `emit('cardPlayed', {playerId, cardIndex})` |
+| `captainSelect` | `{ roomId: string, selectedPlayerId: string }`   | `emit('stateUpdate', state)`                |
+| `useAbility`    | `{ roomId: string }`                             | `emit('abilityUsed', {playerId, state})`    |
+| `proposeCoup`   | `{ roomId: string, anonymous: boolean }`         | `emit('voteStarted', {initiator})`          |
+| `voteCoup`      | `{ roomId: string, vote: boolean }`              | `emit('coupResult', {...})`                 |
+| `nextRound`     | `{ roomId: string }`                             | `emit('newRound', {event, state})`          |
+| `chatPublic`    | `{ roomId: string, text: string }`               | `emit('chatMessage', {...})`                |
+| `chatPrivate`   | `{ roomId: string, to: socketId, text: string }` | `emit('chatMessage', {...})`                |
+
