@@ -108,6 +108,23 @@ describe('Server basic flow', function () {
       });
     });
   });
+
+  it('changes captain to coup initiator when vote passes', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      socket.on('coupResult', ({ result, captain }) => {
+        expect(result).to.equal(true);
+        expect(captain).to.equal(socket.id);
+        socket2.close();
+        done();
+      });
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        socket.emit('proposeCoup', { roomId, anonymous: false });
+        socket.emit('voteCoup', { roomId, vote: true });
+        socket2.emit('voteCoup', { roomId, vote: true });
+      });
+    });
+  });
 });
 
 describe('Offline mode', function () {
