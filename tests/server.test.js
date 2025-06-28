@@ -125,6 +125,80 @@ describe('Server basic flow', function () {
       });
     });
   });
+
+  it('restricts starting the game to the captain', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        let started = false;
+        socket2.on('gameStarted', () => { started = true; });
+        socket2.emit('startGame', { roomId });
+        setTimeout(() => {
+          expect(started).to.equal(false);
+          socket.once('gameStarted', () => {
+            socket2.close();
+            done();
+          });
+          socket.emit('startGame', { roomId });
+        }, 100);
+      });
+    });
+  });
+
+  it('restricts advancing rounds to the captain', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        let currentRound = 0;
+        socket.on('newRound', ({ state }) => { currentRound = state.round; });
+        socket.once('newRound', () => {
+          socket2.emit('nextRound', { roomId });
+          setTimeout(() => {
+            expect(currentRound).to.equal(1);
+            socket.once('newRound', ({ state }) => {
+              expect(state.round).to.equal(2);
+              socket2.close();
+              done();
+            });
+            socket.emit('nextRound', { roomId });
+          }, 100);
+        });
+        socket.emit('startGame', { roomId });
+      });
+    });
+  });
+
+  it('restricts captain selection to the captain', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      let lastState;
+      const stateHandler = (state) => { lastState = state; };
+      socket.on('stateUpdate', stateHandler);
+      socket2.on('stateUpdate', stateHandler);
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        socket.once('newRound', () => {
+          socket2.emit('playCard', { roomId, cardIndex: 0 });
+        });
+        socket.once('cardPlayed', () => {
+          socket.once('stateUpdate', () => {
+            const chosen = lastState.game.players[socket2.id].chosenCard;
+            expect(chosen).to.not.equal(null);
+            socket2.emit('captainSelect', { roomId, selectedPlayerId: socket2.id });
+            setTimeout(() => {
+              expect(lastState.game.players[socket2.id].chosenCard.name).to.equal(chosen.name);
+              socket.once('stateUpdate', (state) => {
+                expect(state.game.players[socket2.id].chosenCard).to.equal(null);
+                socket2.close();
+                done();
+              });
+              socket.emit('captainSelect', { roomId, selectedPlayerId: socket2.id });
+            }, 100);
+          });
+        });
+        socket.emit('startGame', { roomId });
+      });
+    });
+  });
 });
 
 describe('Offline mode', function () {
