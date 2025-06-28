@@ -81,3 +81,15 @@ server code: https://glitch.com/edit/#!/wooden-marbled-owl
 | `chatPublic`    | `{ roomId: string, text: string }`               | `emit('chatMessage', {...})`                |
 | `chatPrivate`   | `{ roomId: string, to: socketId, text: string }` | `emit('chatMessage', {...})`                |
 
+
+## Quickstart
+
+1. Install dependencies and run the server:
+
+```bash
+cd server
+npm install
+npm start
+```
+
+2. Open [http://localhost:3000](http://localhost:3000) in your browser. Use the simple interface to create or join a room and try the basic round flow.
