@@ -203,6 +203,10 @@ socket.on('chatMessage', (msg) => {
   addMsg((msg.private ? '(private) ' : '') + msg.from + ': ' + msg.text);
 });
 
+socket.on('chatNotice', () => {
+  addMsg('(notice) Private message exchanged');
+});
+
 socket.on('gameStarted', (state) => {
   addMsg('Game started');
   renderState(state);
