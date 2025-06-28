@@ -1,32 +1,118 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Space Runner</title>
+  <meta charset="utf-8">
+  <title>The Crew Demo</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
+      background: #000;
       color: #0f0;
       font-family: 'Press Start 2P', cursive;
-      text-align: center;
     }
-    #title {
+    .panel {
+      border: 1px solid #555;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: rgba(0,0,0,0.6);
+    }
+    #chat {
+      border: 1px solid #555;
+      height: 200px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding: 5px;
+      background: rgba(0,0,0,0.6);
+    }
+    .bar {
+      display: inline-block;
+      width: 120px;
+      height: 12px;
+      position: relative;
+      border: 1px solid #555;
+      margin-left: 5px;
+    }
+    .bar::before {
+      content: '';
       position: absolute;
-      top: 20px;
-      width: 100%;
-      pointer-events: none;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: var(--value, 0%);
+      background: #0f0;
     }
-    canvas {
-      display: block;
+    .card {
+      margin: 5px;
+      padding: 5px 10px;
+      border: 1px solid #555;
+      background: #111;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+    }
+    @keyframes shake {
+      0% { transform: translate(0, 0); }
+      25% { transform: translate(-2px, 0); }
+      50% { transform: translate(2px, 0); }
+      75% { transform: translate(-2px, 0); }
+      100% { transform: translate(0, 0); }
+    }
+    .alarm {
+      animation: shake 0.5s infinite;
+    }
+    .typewriter {
+      overflow: hidden;
+      white-space: nowrap;
+      display: inline-block;
+      border-right: 1px solid #0f0;
+      animation: caret 1s steps(1) infinite;
+    }
+    @keyframes caret {
+      50% { border-color: transparent; }
     }
   </style>
 </head>
 <body>
-  <div id="title">SPACE RUNNER</div>
-  <canvas id="game"></canvas>
-  <script type="module" src="./core.js"></script>
+  <h1>The Crew Demo</h1>
+  <div id="login" class="panel">
+    <input id="name" placeholder="Your name" />
+    <button id="create">Create Room</button>
+    <input id="room" placeholder="Room ID" />
+    <button id="join">Join Room</button>
+  </div>
+
+  <div id="game" class="panel" style="display:none;">
+    <p id="status"></p>
+    <div id="round"></div>
+    <div id="ship" class="panel">
+      <div>Temperature: <span id="ship-temperature"></span></div>
+      <div>Oxygen: <span id="ship-oxygen"></span></div>
+      <div>Hull: <span id="ship-hull"></span></div>
+      <div>Morale: <span id="ship-morale"></span></div>
+    </div>
+    <div id="players" class="panel"></div>
+    <div id="cards" class="panel"></div>
+    <div id="offered" class="panel"></div>
+    <div id="timer" class="panel"></div>
+    <div id="objective" class="panel" style="margin-top:10px;"></div>
+    <button id="ability">Use Ability</button>
+    <button id="coup">Start Coup</button>
+    <div id="vote" style="display:none;">
+      <button id="voteYes">Vote Yes</button>
+      <button id="voteNo">Vote No</button>
+    </div>
+    <button id="start">Start Game</button>
+    <button id="end">End Game</button>
+    <button id="next">Next Round</button>
+    <div id="chat" class="panel"></div>
+    <input id="text" placeholder="Say something" />
+    <button id="send">Send</button>
+  </div>
+
+  <script type="module" src="client/background.js"></script>
+  <script src="client/client.js"></script>
 </body>
 </html>
