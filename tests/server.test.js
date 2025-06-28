@@ -195,7 +195,44 @@ describe('Server basic flow', function () {
             }, 100);
           });
         });
-        socket.emit('startGame', { roomId });
+      socket.emit('startGame', { roomId });
+      });
+    });
+  });
+
+  it('ends the game with defeat when a stat reaches zero', (done) => {
+    const PORT = 4010;
+    startServer({ PORT, TEST_EVENT: 'Meteor Shower', START_HULL: '5' }).then(proc => {
+      const s = io(`http://localhost:${PORT}`);
+      s.emit('createRoom', ({ roomId }) => {
+        s.emit('startGame', { roomId });
+      });
+      s.on('gameEnded', ({ victory }) => {
+        expect(victory).to.equal(false);
+        s.close();
+        proc.kill();
+        done();
+      });
+    });
+  });
+
+  it('ends the game with victory after 15 rounds', (done) => {
+    const PORT = 4011;
+    startServer({ PORT, TEST_EVENT: 'Cooling Failure' }).then(proc => {
+      const s = io(`http://localhost:${PORT}`);
+      s.emit('createRoom', ({ roomId }) => {
+        s.emit('startGame', { roomId });
+      });
+      s.on('newRound', ({ state }) => {
+        if (state.round <= 15) {
+          s.emit('nextRound', { roomId: state.roomId });
+        }
+      });
+      s.on('gameEnded', ({ victory }) => {
+        expect(victory).to.equal(true);
+        s.close();
+        proc.kill();
+        done();
       });
     });
   });
