@@ -93,6 +93,21 @@ describe('Server basic flow', function () {
       });
     });
   });
+
+  it('broadcasts ability usage', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      socket2.emit('joinRoom', { roomId, name: 'Alice' }, () => {
+        socket2.on('abilityUsed', ({ playerId, state }) => {
+          expect(playerId).to.be.a('string');
+          expect(state.roomId).to.equal(roomId);
+          socket2.close();
+          done();
+        });
+        socket.emit('useAbility', { roomId });
+      });
+    });
+  });
 });
 
 describe('Offline mode', function () {
