@@ -149,7 +149,11 @@ io.on('connection', (socket) => {
     for (const [roomId, room] of Object.entries(rooms)) {
       if (room.players[socket.id]) {
         delete room.players[socket.id];
-        io.to(roomId).emit('stateUpdate', getState(roomId));
+        if (Object.keys(room.players).length === 0) {
+          delete rooms[roomId];
+        } else {
+          io.to(roomId).emit('stateUpdate', getState(roomId));
+        }
       }
     }
   });
