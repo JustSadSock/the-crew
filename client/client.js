@@ -73,3 +73,7 @@ socket.on('cardPlayed', ({ playerId, cardIndex }) => {
 socket.on('newRound', ({ event, state }) => {
   addMsg('New round ' + state.round);
 });
+
+socket.on('abilityUsed', ({ playerId }) => {
+  addMsg(playerId + ' used their ability');
+});
