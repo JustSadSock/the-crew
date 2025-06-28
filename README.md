@@ -61,3 +61,5 @@
 Раунды короткие и ритмичные: событие → спор → выбор → исход. Полчаса дают полный сюжетный «фильм» с кульминацией.
 
 
+server link: https://wooden-marbled-owl.glitch.me
+server code: https://glitch.com/edit/#!/wooden-marbled-owl
