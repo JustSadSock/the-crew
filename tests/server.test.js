@@ -109,6 +109,25 @@ describe('Server basic flow', function () {
     });
   });
 
+  it('notifies the captain on private messages', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      const socket3 = io(`http://localhost:${SERVER_PORT}`);
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        socket3.emit('joinRoom', { roomId, name: 'Carol' }, () => {
+          socket.once('chatNotice', ({ from, to }) => {
+            expect(from).to.equal(socket2.id);
+            expect(to).to.equal(socket3.id);
+            socket2.close();
+            socket3.close();
+            done();
+          });
+          socket2.emit('chatPrivate', { roomId, to: socket3.id, text: 'hi' });
+        });
+      });
+    });
+  });
+
   it('changes captain to coup initiator when vote passes', (done) => {
     socket.emit('createRoom', ({ roomId }) => {
       const socket2 = io(`http://localhost:${SERVER_PORT}`);

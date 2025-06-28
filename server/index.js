@@ -357,8 +357,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chatPrivate', ({ roomId, to, text }) => {
+    const room = rooms[roomId];
+    if (!room) return;
     io.to(to).emit('chatMessage', { from: socket.id, text, private: true });
     socket.emit('chatMessage', { from: socket.id, text, to, private: true });
+    if (room.captain) {
+      io.to(room.captain).emit('chatNotice', { from: socket.id, to });
+    }
   });
 
   socket.on('endGame', ({ roomId }) => {
