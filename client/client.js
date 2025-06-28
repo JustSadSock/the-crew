@@ -14,17 +14,20 @@ const playersEl = document.getElementById('players');
 const cardsEl = document.getElementById('cards');
 const offeredEl = document.getElementById('offered');
 const timerEl = document.getElementById('timer');
+const objectiveEl = document.getElementById('objective');
 const abilityBtn = document.getElementById('ability');
 const coupBtn = document.getElementById('coup');
 const voteDiv = document.getElementById('vote');
 const voteYesBtn = document.getElementById('voteYes');
 const voteNoBtn = document.getElementById('voteNo');
+const endBtn = document.getElementById('end');
 
 let roomId = null;
 let currentState = null;
 let myCards = [];
 let offeredCards = [];
 let timerInterval = null;
+let myObjective = '';
 
 function addMsg(msg) {
   const p = document.createElement('p');
@@ -60,6 +63,7 @@ function renderState(state) {
   if (myData) {
     abilityBtn.disabled = !(myData.abilityCharge >= 100 && myData.cooldown === 0);
     abilityBtn.textContent = 'Use Ability (' + myData.abilityCharge + '%)';
+    objectiveEl.textContent = 'Objective: ' + myObjective;
 
     cardsEl.innerHTML = '';
     if (myData.chosenCard === null) {
@@ -75,6 +79,10 @@ function renderState(state) {
     } else {
       cardsEl.textContent = 'Card sent';
     }
+  }
+
+  if (!myData) {
+    objectiveEl.textContent = '';
   }
 
   renderOffered();
@@ -141,6 +149,10 @@ document.getElementById('start').onclick = () => {
 
 document.getElementById('next').onclick = () => {
   socket.emit('nextRound', { roomId });
+};
+
+endBtn.onclick = () => {
+  socket.emit('endGame', { roomId });
 };
 
 abilityBtn.onclick = () => {
@@ -220,4 +232,17 @@ socket.on('coupResult', ({ result, captain }) => {
     currentState.captain = captain;
     renderState(currentState);
   }
+});
+
+socket.on('personalObjective', ({ text }) => {
+  myObjective = text;
+  objectiveEl.textContent = 'Objective: ' + myObjective;
+});
+
+socket.on('gameEnded', ({ results }) => {
+  addMsg('Game Over');
+  results.forEach(r => {
+    addMsg(`${r.name} - ${r.role}${r.saboteur ? ' (Saboteur)' : ''} | ` +
+      `${r.success ? 'Succeeded' : 'Failed'}: ${r.objective}`);
+  });
 });

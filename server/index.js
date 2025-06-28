@@ -31,6 +31,15 @@ function createRoomId() {
 function getState(roomId) {
   const room = rooms[roomId];
   if (!room) return null;
+  let game = null;
+  if (room.game) {
+    game = { ship: { ...room.game.ship }, players: {} };
+    Object.entries(room.game.players).forEach(([pid, p]) => {
+      game.players[pid] = { ...p };
+      delete game.players[pid].objective; // hide personal goals
+      delete game.players[pid].saboteur;
+    });
+  }
   return {
     roomId,
     players: Object.values(room.players).map(p => ({
@@ -40,7 +49,7 @@ function getState(roomId) {
     })),
     captain: room.captain,
     round: room.round,
-    game: room.game,
+    game,
   };
 }
 
@@ -75,21 +84,31 @@ function runBots(roomId) {
 function createGameState(room) {
   const ship = { temperature: 100, oxygen: 100, hull: 100, morale: 100 };
   const roles = ['Engineer', 'Psychologist', 'Navigator', 'Operator'];
-  const objectives = [
+  const crewObjectives = [
     'Keep morale above 90',
     'Change the captain once',
     'Keep hull above 50',
+  ];
+  const sabotageObjectives = [
     'Reduce oxygen below 30',
+    'Drop morale below 50',
+    'Overheat the ship above 120',
   ];
   const players = {};
   const ids = Object.keys(room.players);
+  const shuffled = ids.sort(() => Math.random() - 0.5);
+  const sabCount = Math.min(shuffled.length, Math.floor(Math.random() * 2) + 1);
+  const saboteurs = new Set(shuffled.slice(0, sabCount));
   ids.forEach((id, idx) => {
     const role = roles[idx % roles.length];
-    const objective = objectives[idx % objectives.length];
+    const isSaboteur = saboteurs.has(id);
+    const objArr = isSaboteur ? sabotageObjectives : crewObjectives;
+    const objective = objArr[Math.floor(Math.random() * objArr.length)];
     room.players[id].role = role;
     players[id] = {
       role,
       objective,
+      saboteur: isSaboteur,
       abilityCharge: 0,
       cooldown: 0,
       chosenCard: null,
@@ -114,6 +133,26 @@ function applyEffect(ship, effect) {
       ship[k] = Math.max(0, Math.min(100, ship[k] + v));
     }
   });
+}
+
+function objectiveSuccess(obj, room) {
+  const ship = room.game.ship;
+  switch (obj) {
+    case 'Keep morale above 90':
+      return ship.morale > 90;
+    case 'Change the captain once':
+      return room.captainChanged;
+    case 'Keep hull above 50':
+      return ship.hull > 50;
+    case 'Reduce oxygen below 30':
+      return ship.oxygen < 30;
+    case 'Drop morale below 50':
+      return ship.morale < 50;
+    case 'Overheat the ship above 120':
+      return ship.temperature > 120;
+    default:
+      return false;
+  }
 }
 
 function startRound(roomId, initial = false) {
@@ -157,6 +196,7 @@ io.on('connection', (socket) => {
       gameStarted: false,
       round: 0,
       votes: {},
+      captainChanged: false,
     };
     socket.join(roomId);
     rooms[roomId].players[socket.id] = { id: socket.id, name: 'Captain' };
@@ -184,6 +224,13 @@ io.on('connection', (socket) => {
     room.gameStarted = true;
     room.round = 0;
     room.game = createGameState(room);
+    if (room.game && room.game.players) {
+      Object.entries(room.game.players).forEach(([pid, p]) => {
+        if (!room.players[pid].bot) {
+          io.to(pid).emit('personalObjective', { text: p.objective });
+        }
+      });
+    }
     io.to(roomId).emit('gameStarted', getState(roomId));
     startRound(roomId, true);
   });
@@ -245,7 +292,10 @@ io.on('connection', (socket) => {
       const yes = Object.values(room.votes).filter(v => v).length;
       const result = yes > total / 2;
       if (result) {
-        room.captain = room.coupInitiator;
+        if (room.captain !== room.coupInitiator) {
+          room.captain = room.coupInitiator;
+          room.captainChanged = true;
+        }
       }
       delete room.coupInitiator;
       io.to(roomId).emit('coupResult', { result, captain: room.captain });
@@ -263,6 +313,20 @@ io.on('connection', (socket) => {
   socket.on('chatPrivate', ({ roomId, to, text }) => {
     io.to(to).emit('chatMessage', { from: socket.id, text, private: true });
     socket.emit('chatMessage', { from: socket.id, text, to, private: true });
+  });
+
+  socket.on('endGame', ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room || !room.game) return;
+    const results = Object.entries(room.game.players).map(([pid, p]) => ({
+      id: pid,
+      name: room.players[pid].name,
+      role: p.role,
+      saboteur: p.saboteur,
+      objective: p.objective,
+      success: objectiveSuccess(p.objective, room),
+    }));
+    io.to(roomId).emit('gameEnded', { results });
   });
 
   socket.on('disconnect', () => {
