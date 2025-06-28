@@ -6,6 +6,10 @@ const events = [
 ];
 
 function randomEvent() {
+  if (process.env.TEST_EVENT) {
+    const fixed = events.find(e => e.name === process.env.TEST_EVENT);
+    if (fixed) return fixed;
+  }
   return events[Math.floor(Math.random() * events.length)];
 }
 

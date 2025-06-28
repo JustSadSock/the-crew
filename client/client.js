@@ -28,6 +28,7 @@ let myCards = [];
 let offeredCards = [];
 let timerInterval = null;
 let myObjective = '';
+let gameOver = false;
 
 function addMsg(msg) {
   const p = document.createElement('p');
@@ -258,10 +259,12 @@ socket.on('personalObjective', ({ text }) => {
   objectiveEl.textContent = 'Objective: ' + myObjective;
 });
 
-socket.on('gameEnded', ({ results }) => {
-  addMsg('Game Over');
+socket.on('gameEnded', ({ results, victory }) => {
+  gameOver = true;
+  addMsg('Game Over - ' + (victory ? 'Victory' : 'Defeat'));
   results.forEach(r => {
     addMsg(`${r.name} - ${r.role}${r.saboteur ? ' (Saboteur)' : ''} | ` +
       `${r.success ? 'Succeeded' : 'Failed'}: ${r.objective}`);
   });
+  document.querySelectorAll('button').forEach(b => { b.disabled = true; });
 });

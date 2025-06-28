@@ -82,7 +82,12 @@ function runBots(roomId) {
 }
 
 function createGameState(room) {
-  const ship = { temperature: 100, oxygen: 100, hull: 100, morale: 100 };
+  const ship = {
+    temperature: parseInt(process.env.START_TEMPERATURE || '100', 10),
+    oxygen: parseInt(process.env.START_OXYGEN || '100', 10),
+    hull: parseInt(process.env.START_HULL || '100', 10),
+    morale: parseInt(process.env.START_MORALE || '100', 10),
+  };
   const roles = ['Engineer', 'Psychologist', 'Navigator', 'Operator'];
   const crewObjectives = [
     'Keep morale above 90',
@@ -155,12 +160,44 @@ function objectiveSuccess(obj, room) {
   }
 }
 
+function endGame(roomId, victory) {
+  const room = rooms[roomId];
+  if (!room || !room.game || room.gameEnded) return;
+  room.gameEnded = true;
+  const results = Object.entries(room.game.players).map(([pid, p]) => ({
+    id: pid,
+    name: room.players[pid].name,
+    role: p.role,
+    saboteur: p.saboteur,
+    objective: p.objective,
+    success: objectiveSuccess(p.objective, room),
+  }));
+  io.to(roomId).emit('gameEnded', { victory, results });
+}
+
+function checkGameEnd(roomId) {
+  const room = rooms[roomId];
+  if (!room || !room.game) return false;
+  const ship = room.game.ship;
+  if (Object.values(ship).some(v => v <= 0)) {
+    endGame(roomId, false);
+    return true;
+  }
+  if (room.round >= 15) {
+    endGame(roomId, true);
+    return true;
+  }
+  return false;
+}
+
 function startRound(roomId, initial = false) {
   const room = rooms[roomId];
   if (!room || !room.game) return;
   room.round += 1;
+  if (checkGameEnd(roomId)) return;
   const event = randomEvent();
   applyEffect(room.game.ship, event.effect);
+  if (checkGameEnd(roomId)) return;
   Object.entries(room.game.players).forEach(([pid, p]) => {
     p.cards = drawCards(p.role);
     p.chosenCard = null;
@@ -261,6 +298,7 @@ io.on('connection', (socket) => {
     player.chosenCard = null;
     player.abilityCharge = Math.min(100, player.abilityCharge + 20);
     io.to(roomId).emit('stateUpdate', getState(roomId));
+    checkGameEnd(roomId);
   });
 
   socket.on('useAbility', ({ roomId }) => {
@@ -275,6 +313,7 @@ io.on('connection', (socket) => {
     }
     io.to(roomId).emit('abilityUsed', { playerId: socket.id, state: getState(roomId) });
     io.to(roomId).emit('stateUpdate', getState(roomId));
+    checkGameEnd(roomId);
   });
 
   socket.on('proposeCoup', ({ roomId, anonymous }) => {
@@ -308,7 +347,9 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) return;
     if (socket.id !== room.captain) return;
-    startRound(roomId);
+    if (!checkGameEnd(roomId)) {
+      startRound(roomId);
+    }
   });
 
   socket.on('chatPublic', ({ roomId, text }) => {
@@ -323,15 +364,7 @@ io.on('connection', (socket) => {
   socket.on('endGame', ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || !room.game) return;
-    const results = Object.entries(room.game.players).map(([pid, p]) => ({
-      id: pid,
-      name: room.players[pid].name,
-      role: p.role,
-      saboteur: p.saboteur,
-      objective: p.objective,
-      success: objectiveSuccess(p.objective, room),
-    }));
-    io.to(roomId).emit('gameEnded', { results });
+    endGame(roomId, false);
   });
 
   socket.on('disconnect', () => {
