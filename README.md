@@ -93,3 +93,13 @@ npm start
 ```
 
 2. Open [http://localhost:3000](http://localhost:3000) in your browser. Use the simple interface to create or join a room and try the basic round flow.
+
+### Offline mode
+
+Run the server with local bots for a quick single-player or hotseat session:
+
+```bash
+npm run offline
+```
+
+Use `BOT_COUNT` to control how many bots join automatically (default is `3`).
