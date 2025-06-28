@@ -103,3 +103,7 @@ npm run offline
 ```
 
 Use `BOT_COUNT` to control how many bots join automatically (default is `3`).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
