@@ -75,6 +75,24 @@ describe('Server basic flow', function () {
       });
     });
   });
+
+  it('removes a room when all players disconnect', (done) => {
+    socket.emit('createRoom', ({ roomId }) => {
+      const socket2 = io(`http://localhost:${SERVER_PORT}`);
+      socket2.emit('joinRoom', { roomId, name: 'Bob' }, () => {
+        socket.close();
+        socket2.close();
+        setTimeout(() => {
+          const socket3 = io(`http://localhost:${SERVER_PORT}`);
+          socket = socket3;
+          socket3.emit('joinRoom', { roomId, name: 'Carol' }, ({ success }) => {
+            expect(success).to.equal(false);
+            done();
+          });
+        }, 50);
+      });
+    });
+  });
 });
 
 describe('Offline mode', function () {
