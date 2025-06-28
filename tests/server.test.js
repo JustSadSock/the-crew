@@ -68,8 +68,8 @@ describe('Server basic flow', function () {
         expect(state.roomId).to.equal(roomId);
         socket.emit('playCard', { roomId, cardIndex: 0 });
       });
-      socket.on('cardPlayed', ({ cardIndex }) => {
-        expect(cardIndex).to.equal(0);
+      socket.on('cardPlayed', ({ playerId }) => {
+        expect(playerId).to.be.a('string');
         socket2.close();
         done();
       });

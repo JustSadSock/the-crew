@@ -6,6 +6,8 @@ const path = require('path');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+const { decks } = require('./cards');
+const { randomEvent } = require('./events');
 
 app.use(express.static(path.resolve(__dirname, '../client')));
 
@@ -58,7 +60,14 @@ function runBots(roomId) {
   const bots = Object.values(room.players).filter(p => p.bot);
   bots.forEach((bot, idx) => {
     setTimeout(() => {
-      io.to(roomId).emit('cardPlayed', { playerId: bot.id, cardIndex: Math.floor(Math.random() * 3) });
+      const player = room.game && room.game.players[bot.id];
+      if (!player || player.chosenCard) return;
+      const idxCard = Math.floor(Math.random() * player.cards.length);
+      const card = player.cards[idxCard];
+      player.chosenCard = card;
+      io.to(room.captain).emit('cardOffered', { playerId: bot.id, cardName: card.name });
+      io.to(roomId).emit('cardPlayed', { playerId: bot.id });
+      io.to(roomId).emit('stateUpdate', getState(roomId));
     }, 500 * (idx + 1));
   });
 }
@@ -84,16 +93,53 @@ function createGameState(room) {
       abilityCharge: 0,
       cooldown: 0,
       chosenCard: null,
+      cards: [],
     };
   });
   return { ship, players };
 }
 
-const CARD_EFFECTS = [
-  { hull: -5 },
-  { oxygen: -5 },
-  { morale: 5 },
-];
+function drawCards(role) {
+  const deck = decks[role] || [];
+  const cards = [];
+  for (let i = 0; i < 3; i++) {
+    cards.push(deck[Math.floor(Math.random() * deck.length)]);
+  }
+  return cards;
+}
+
+function applyEffect(ship, effect) {
+  Object.entries(effect).forEach(([k, v]) => {
+    if (ship[k] !== undefined) {
+      ship[k] = Math.max(0, Math.min(100, ship[k] + v));
+    }
+  });
+}
+
+function startRound(roomId, initial = false) {
+  const room = rooms[roomId];
+  if (!room || !room.game) return;
+  room.round += 1;
+  const event = randomEvent();
+  applyEffect(room.game.ship, event.effect);
+  Object.entries(room.game.players).forEach(([pid, p]) => {
+    p.cards = drawCards(p.role);
+    p.chosenCard = null;
+    if (!initial) {
+      if (p.cooldown > 0) {
+        p.cooldown -= 1;
+      } else {
+        p.abilityCharge = Math.min(100, p.abilityCharge + 20);
+      }
+    }
+    const hand = p.cards.map(c => ({ name: c.name, description: c.description }));
+    io.to(pid).emit('dealCards', hand);
+  });
+  io.to(roomId).emit('newRound', { event: event.name, state: getState(roomId) });
+  io.to(roomId).emit('stateUpdate', getState(roomId));
+  if (OFFLINE) runBots(roomId);
+}
+
 
 const ABILITY_EFFECTS = {
   Engineer: { hull: 20 },
@@ -136,21 +182,23 @@ io.on('connection', (socket) => {
     const room = rooms[roomId];
     if (!room) return;
     room.gameStarted = true;
-    room.round = 1;
+    room.round = 0;
     room.game = createGameState(room);
     io.to(roomId).emit('gameStarted', getState(roomId));
-    io.to(roomId).emit('stateUpdate', getState(roomId));
-    if (OFFLINE) runBots(roomId);
+    startRound(roomId, true);
   });
 
   socket.on('playCard', ({ roomId, cardIndex }) => {
     const room = rooms[roomId];
     if (!room || !room.game) return;
-    if (room.game.players[socket.id]) {
-      room.game.players[socket.id].chosenCard = cardIndex;
+    const player = room.game.players[socket.id];
+    if (player && player.cards[cardIndex]) {
+      const card = player.cards[cardIndex];
+      player.chosenCard = card;
+      io.to(room.captain).emit('cardOffered', { playerId: socket.id, cardName: card.name });
+      io.to(roomId).emit('cardPlayed', { playerId: socket.id });
+      io.to(roomId).emit('stateUpdate', getState(roomId));
     }
-    io.to(roomId).emit('cardPlayed', { playerId: socket.id, cardIndex });
-    io.to(roomId).emit('stateUpdate', getState(roomId));
   });
 
   socket.on('captainSelect', ({ roomId, selectedPlayerId }) => {
@@ -158,13 +206,9 @@ io.on('connection', (socket) => {
     if (!room || !room.game) return;
     const player = room.game.players[selectedPlayerId];
     if (!player) return;
-    const cardIdx = player.chosenCard;
-    const effect = CARD_EFFECTS[cardIdx] || {};
-    Object.entries(effect).forEach(([k, v]) => {
-      if (room.game.ship[k] !== undefined) {
-        room.game.ship[k] = Math.max(0, Math.min(100, room.game.ship[k] + v));
-      }
-    });
+    const card = player.chosenCard;
+    if (!card) return;
+    applyEffect(room.game.ship, card.effect || {});
     player.chosenCard = null;
     player.abilityCharge = Math.min(100, player.abilityCharge + 20);
     io.to(roomId).emit('stateUpdate', getState(roomId));
@@ -176,11 +220,7 @@ io.on('connection', (socket) => {
     const player = room.game && room.game.players[socket.id];
     if (player && player.abilityCharge >= 100 && player.cooldown === 0) {
       const effect = ABILITY_EFFECTS[player.role] || {};
-      Object.entries(effect).forEach(([k, v]) => {
-        if (room.game.ship[k] !== undefined) {
-          room.game.ship[k] = Math.max(0, Math.min(100, room.game.ship[k] + v));
-        }
-      });
+      applyEffect(room.game.ship, effect);
       player.abilityCharge = 0;
       player.cooldown = 4;
     }
@@ -213,22 +253,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('nextRound', ({ roomId }) => {
-    const room = rooms[roomId];
-    if (!room || !room.game) return;
-    room.round += 1;
-    const keys = Object.keys(room.game.ship);
-    const key = keys[Math.floor(Math.random() * keys.length)];
-    room.game.ship[key] = Math.max(0, room.game.ship[key] - 5);
-    Object.values(room.game.players).forEach(p => {
-      if (p.cooldown > 0) {
-        p.cooldown -= 1;
-      } else {
-        p.abilityCharge = Math.min(100, p.abilityCharge + 20);
-      }
-    });
-    io.to(roomId).emit('newRound', { event: key, state: getState(roomId) });
-    io.to(roomId).emit('stateUpdate', getState(roomId));
-    if (OFFLINE) runBots(roomId);
+    startRound(roomId);
   });
 
   socket.on('chatPublic', ({ roomId, text }) => {

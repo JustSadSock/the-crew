@@ -12,6 +12,8 @@ const shipEls = {
 };
 const playersEl = document.getElementById('players');
 const cardsEl = document.getElementById('cards');
+const offeredEl = document.getElementById('offered');
+const timerEl = document.getElementById('timer');
 const abilityBtn = document.getElementById('ability');
 const coupBtn = document.getElementById('coup');
 const voteDiv = document.getElementById('vote');
@@ -20,6 +22,9 @@ const voteNoBtn = document.getElementById('voteNo');
 
 let roomId = null;
 let currentState = null;
+let myCards = [];
+let offeredCards = [];
+let timerInterval = null;
 
 function addMsg(msg) {
   const p = document.createElement('p');
@@ -58,18 +63,49 @@ function renderState(state) {
 
     cardsEl.innerHTML = '';
     if (myData.chosenCard === null) {
-      for (let i = 0; i < 3; i++) {
+      myCards.forEach((c, i) => {
         const btn = document.createElement('button');
-        btn.textContent = 'Card ' + (i + 1);
+        btn.textContent = c.name;
+        btn.title = c.description;
         btn.onclick = () => {
           socket.emit('playCard', { roomId, cardIndex: i });
         };
         cardsEl.appendChild(btn);
-      }
+      });
     } else {
-      cardsEl.textContent = 'Played card ' + (myData.chosenCard + 1);
+      cardsEl.textContent = 'Card sent';
     }
   }
+
+  renderOffered();
+}
+
+function renderOffered() {
+  offeredEl.innerHTML = '';
+  if (currentState && currentState.captain === socket.id) {
+    offeredCards.forEach((c) => {
+      const btn = document.createElement('button');
+      btn.textContent = c.playerName + ': ' + c.cardName;
+      btn.onclick = () => {
+        socket.emit('captainSelect', { roomId, selectedPlayerId: c.playerId });
+        offeredCards = [];
+        renderOffered();
+        clearInterval(timerInterval);
+      };
+      offeredEl.appendChild(btn);
+    });
+  }
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  let time = 60;
+  timerEl.textContent = 'Time: ' + time;
+  timerInterval = setInterval(() => {
+    time -= 1;
+    timerEl.textContent = 'Time: ' + time;
+    if (time <= 0) clearInterval(timerInterval);
+  }, 1000);
 }
 
 document.getElementById('create').onclick = () => {
@@ -140,13 +176,27 @@ socket.on('gameStarted', (state) => {
   renderState(state);
 });
 
-socket.on('cardPlayed', ({ playerId, cardIndex }) => {
-  addMsg(playerId + ' played card ' + (cardIndex + 1));
+socket.on('dealCards', (cards) => {
+  myCards = cards;
+  renderState(currentState);
+});
+
+socket.on('cardPlayed', ({ playerId }) => {
+  addMsg(playerId + ' offered a card');
+});
+
+socket.on('cardOffered', ({ playerId, cardName }) => {
+  if (currentState && currentState.captain === socket.id) {
+    const name = (currentState.players.find(p => p.id === playerId) || {}).name || playerId;
+    offeredCards.push({ playerId, cardName, playerName: name });
+    renderOffered();
+  }
 });
 
 socket.on('newRound', ({ event, state }) => {
   addMsg('New round ' + state.round);
   renderState(state);
+  startTimer();
 });
 
 socket.on('abilityUsed', ({ playerId, state }) => {
